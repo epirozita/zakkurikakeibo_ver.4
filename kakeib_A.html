@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ふたりの家計簿 (A用)</title>
+    <!-- 共通のスクリプトとスタイルは元のファイルと同じです -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, query, onSnapshot, addDoc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'shared-kakeibo-app';
+
+        // ★ ここを 'A' に固定しています
+        let currentUser = 'A';
+        
+        let records = [];
+        let chart = null;
+        let authenticatedUser = null;
+        let selectedMonth = new Date().toISOString().slice(0, 7);
+        let activeTab = 'home';
+
+        const $ = (id) => document.getElementById(id);
+
+        // ユーザー切り替え機能を無効化または固定表示にするための調整
+        window.switchUser = (user) => {
+            // 固定ユーザーのため、切り替え機能は動作させない（または警告を出す）
+            console.log("このファイルはユーザーA専用です");
+        };
+
+        window.switchTab = (tab) => {
+            activeTab = tab;
+            ['home-screen', 'stats-screen', 'settlement-screen'].forEach(id => $(id).classList.add('hidden'));
+            $(`${tab}-screen`).classList.remove('hidden');
+            renderAll();
+        };
+
+        window.changeMonth = (val) => {
+            const date = new Date(selectedMonth + "-01");
+            date.setMonth(date.getMonth() + val);
+            selectedMonth = date.toISOString().slice(0, 7);
+            $('current-month-display').innerText = selectedMonth.replace('-', '年 ') + '月';
+            renderAll();
+        };
+
+        window.toggleType = (type) => {
+            $('expense-fields').classList.toggle('hidden', type !== 'expense');
+            $('income-fields').classList.toggle('hidden', type !== 'income');
+            $('reimbursement-section').classList.toggle('hidden', type !== 'expense');
+            if (type === 'income') {
+                $('is-reimbursement').checked = false;
+                toggleReimbursementMode();
+            }
+        };
+
+        window.toggleReimbursementMode = () => {
+            $('reimbursement-details').classList.toggle('hidden', !$('is-reimbursement').checked);
+        };
+
+        window.autoCalculateSplit = (changedField) => {
+            const total = parseInt($('amount').value) || 0;
+            if ($('reimbursement-mode').value === 'custom') {
+                if (changedField === 'A') {
+                    const valA = parseInt($('amount-a').value) || 0;
+                    $('amount-b').value = Math.max(0, total - valA);
+                } else {
+                    const valB = parseInt($('amount-b').value) || 0;
+                    $('amount-a').value = Math.max(0, total - valB);
+                }
+            }
+        };
+
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) { console.error("Auth Error:", error); }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            authenticatedUser = user;
+            if (user) {
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'));
+                onSnapshot(q, (snapshot) => {
+                    records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderAll();
+                }, (err) => console.error(err));
+            }
+        });
+
+        window.submitForm = async (e) => {
+            e.preventDefault();
+            if (!authenticatedUser) return;
+            const type = document.querySelector('input[name="type"]:checked').value;
+            const isReimbursement = $('is-reimbursement').checked;
+            const totalAmount = parseInt($('amount').value);
+            const data = {
+                user: currentUser,
+                date: $('date').value,
+                type: type,
+                content: $('content').value,
+                amount: totalAmount,
+                isReimbursement: isReimbursement,
+                timestamp: Timestamp.now()
+            };
+            if (type === 'expense') {
+                data.categoryMain = $('cat-main').value;
+                data.categorySub = $('cat-sub').value;
+                if (isReimbursement) {
+                    const mode = $('reimbursement-mode').value;
+                    data.amountA = mode === 'split' ? totalAmount/2 : (parseInt($('amount-a').value) || 0);
+                    data.amountB = mode === 'split' ? totalAmount/2 : (parseInt($('amount-b').value) || 0);
+                }
+            } else {
+                data.categoryMain = $('cat-income').value;
+            }
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), data);
+            $('transaction-form').reset();
+            $('date').value = new Date().toISOString().slice(0, 10);
+            toggleType('expense');
+            toggleReimbursementMode();
+        };
+
+        window.deleteRecord = async (id) => {
+            if (confirm('この記録を削除しますか？')) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', id));
+            }
+        };
+
+        const renderAll = () => {
+            const monthRecords = records.filter(r => r.date.startsWith(selectedMonth));
+            let netAowedByB = 0;
+            records.filter(r => r.isReimbursement).forEach(r => {
+                if (r.user === 'A') netAowedByB += (r.amountB || 0);
+                else netAowedByB -= (r.amountA || 0);
+            });
+            const getMyExpense = (r) => {
+                if (r.type !== 'expense') return 0;
+                if (r.isReimbursement) return currentUser === 'A' ? r.amountA : r.amountB;
+                return r.user === currentUser ? r.amount : 0;
+            };
+            const getMyIncome = (r) => (r.type === 'income' && r.user === currentUser) ? r.amount : 0;
+            const myMonthRecords = monthRecords.filter(r => r.user === currentUser || r.isReimbursement);
+            renderSettlement(netAowedByB, records.filter(r => r.isReimbursement));
+            renderHistory(myMonthRecords);
+            renderStats(monthRecords, getMyExpense, getMyIncome);
+        };
+
+        const renderSettlement = (balance, allReimbursements) => {
+            const display = $('settlement-balance');
+            if (balance > 0) {
+                display.innerHTML = `<div class="text-blue-600 font-bold">B → A</div><div class="text-2xl font-black">¥${balance.toLocaleString()}</div><div class="text-[10px] text-gray-400">BがAに支払うべき残高</div>`;
+            } else if (balance < 0) {
+                display.innerHTML = `<div class="text-pink-600 font-bold">A → B</div><div class="text-2xl font-black">¥${Math.abs(balance).toLocaleString()}</div><div class="text-[10px] text-gray-400">AがBに支払うべき残高</div>`;
+            } else {
+                display.innerHTML = `<div class="text-gray-400">清算なし</div>`;
+            }
+            $('reimbursement-list').innerHTML = allReimbursements
+                .sort((a,b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 20)
+                .map(r => `
+                <div class="flex justify-between items-center p-3 bg-white mb-2 rounded-lg shadow-sm border-l-4 ${r.user === 'A' ? 'border-blue-400' : 'border-pink-400'}">
+                    <div class="text-xs">
+                        <div class="text-gray-400">${r.date}</div>
+                        <div class="font-bold text-gray-700">${r.content}</div>
+                        <div class="text-gray-400">支払: ${r.user} | 負担: A:${Math.round(r.amountA)} B:${Math.round(r.amountB)}</div>
+                    </div>
+                    <div class="text-right font-bold text-gray-800">¥${r.amount.toLocaleString()}</div>
+                </div>
+            `).join('');
+        };
+
+        const renderHistory = (data) => {
+            $('record-list').innerHTML = data.length ? data.map(r => `
+                <div class="flex justify-between items-center p-4 border-b bg-white group">
+                    <div class="flex-1">
+                        <div class="text-[10px] flex items-center gap-1 ${r.user === 'A' ? 'text-blue-500' : 'text-pink-500'}">
+                            <span class="font-bold">${r.user}</span>
+                            <span class="text-gray-300">|</span>
+                            <span class="text-gray-400">${r.date}</span>
+                            ${r.isReimbursement ? '<span class="bg-yellow-100 text-yellow-700 px-1 rounded text-[8px]">立替</span>' : ''}
+                        </div>
+                        <div class="font-medium text-gray-800">${r.content}</div>
+                        <div class="text-[10px] text-gray-400">${r.categoryMain} ${r.categorySub ? ' > ' + r.categorySub : ''}</div>
+                    </div>
+                    <div class="text-right flex items-center gap-3">
+                        <div>
+                            <div class="${r.type === 'expense' ? 'text-red-500' : 'text-green-600'} font-bold">
+                                ${r.type === 'expense' ? '-' : '+'}${r.amount.toLocaleString()}
+                            </div>
+                            ${r.isReimbursement ? `<div class="text-[9px] text-gray-400">自己負担: ¥${Math.round(currentUser === 'A' ? r.amountA : r.amountB).toLocaleString()}</div>` : ''}
+                        </div>
+                        <button onclick="deleteRecord('${r.id}')" class="text-gray-300 hover:text-red-500 p-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('') : '<div class="p-10 text-center text-gray-400 text-sm">記録がありません</div>';
+        };
+
+        const renderStats = (monthRecords, getMyExpense, getMyIncome) => {
+            const myExpRecords = monthRecords.filter(r => getMyExpense(r) > 0);
+            const totalExp = myExpRecords.reduce((sum, r) => sum + getMyExpense(r), 0);
+            const totalInc = monthRecords.reduce((sum, r) => sum + getMyIncome(r), 0);
+            $('total-exp-display').innerText = `¥${totalExp.toLocaleString()}`;
+            $('total-inc-display').innerText = `¥${totalInc.toLocaleString()}`;
+            const catMap = {};
+            myExpRecords.forEach(r => {
+                const key = r.categoryMain;
+                catMap[key] = (catMap[key] || 0) + getMyExpense(r);
+            });
+            const sortedCats = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+            $('category-stats-list').innerHTML = sortedCats.map(([cat, val]) => {
+                const perc = totalExp > 0 ? (val / totalExp * 100).toFixed(0) : 0;
+                return `
+                    <div class="mb-4">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="font-bold text-gray-700">${cat}</span>
+                            <span class="text-gray-500">¥${val.toLocaleString()} (${perc}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                            <div class="bg-blue-500 h-full" style="width: ${perc}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            const ctx = $('myChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: sortedCats.map(c => c[0]),
+                    datasets: [{
+                        data: sortedCats.map(c => c[1]),
+                        backgroundColor: ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#8b5cf6', '#f43f5e', '#94a3b8']
+                    }]
+                },
+                options: { cutout: '75%', plugins: { legend: { display: false } } }
+            });
+        };
+
+        window.onload = () => {
+            $('current-month-display').innerText = selectedMonth.replace('-', '年 ') + '月';
+            initAuth();
+            // バッジの初期化
+            $('user-badge').innerText = `ユーザーA`;
+        };
+    </script>
+    <style>
+        .nav-btn.active { color: #3b82f6; }
+        .nav-btn.active svg { transform: translateY(-2px); color: #3b82f6; }
+        ::-webkit-scrollbar { width: 0px; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen pb-24">
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-100 p-4">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <button onclick="changeMonth(-1)" class="p-1 hover:bg-slate-100 rounded">
+                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <span id="current-month-display" class="font-black text-slate-700 text-sm w-24 text-center"></span>
+                <button onclick="changeMonth(1)" class="p-1 hover:bg-slate-100 rounded">
+                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+            <div id="user-badge" class="px-3 py-1 bg-blue-500 text-white rounded-full text-xs font-bold shadow-lg shadow-blue-200">
+                ユーザーA
+            </div>
+        </div>
+    </header>
+    <!-- メインコンテンツは元のファイルと同じのため省略（実際にはコピーしてください） -->
+    <main class="max-w-md mx-auto p-4 space-y-6">
+        <div id="home-screen" class="space-y-6">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+                <div id="settlement-balance" class="flex-1 text-center border-r border-slate-50">計算中...</div>
+                <button onclick="switchTab('settlement')" class="flex-1 text-blue-500 text-xs font-bold flex flex-col items-center gap-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    詳細を見る
+                </button>
+            </div>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <form id="transaction-form" onsubmit="submitForm(event)" class="space-y-4">
+                    <div class="flex p-1 bg-slate-100 rounded-xl">
+                        <label class="flex-1 text-center cursor-pointer">
+                            <input type="radio" name="type" value="expense" checked class="hidden peer" onchange="toggleType('expense')">
+                            <div class="peer-checked:bg-white peer-checked:text-blue-600 peer-checked:shadow-sm rounded-lg py-2 text-xs font-black text-slate-500 transition-all">支出</div>
+                        </label>
+                        <label class="flex-1 text-center cursor-pointer">
+                            <input type="radio" name="type" value="income" class="hidden peer" onchange="toggleType('income')">
+                            <div class="peer-checked:bg-white peer-checked:text-green-600 peer-checked:shadow-sm rounded-lg py-2 text-xs font-black text-slate-500 transition-all">歳入</div>
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="date" id="date" required class="bg-slate-50 p-3 rounded-xl text-sm border-none outline-none" value="">
+                        <input type="number" id="amount" placeholder="金額" required oninput="autoCalculateSplit('A')" class="bg-slate-50 p-3 rounded-xl text-sm border-none outline-none font-bold">
+                    </div>
+                    <input type="text" id="content" placeholder="内容" required class="w-full bg-slate-50 p-3 rounded-xl text-sm border-none outline-none">
+                    <div id="expense-fields" class="grid grid-cols-2 gap-3">
+                        <select id="cat-main" class="bg-slate-50 p-3 rounded-xl text-xs outline-none border-none"><option>デート</option><option>家族と</option><option>友達と</option><option>自分の趣味</option><option>生活必需</option><option>仕事</option><option>お土産・寄付</option><option>その他</option></select>
+                        <select id="cat-sub" class="bg-slate-50 p-3 rounded-xl text-xs outline-none border-none"><option>移動</option><option>宿泊</option><option>食べ物</option><option>もの</option><option>娯楽</option><option>健康</option><option>保険・税金</option><option>その他</option></select>
+                    </div>
+                    <div id="income-fields" class="hidden"><select id="cat-income" class="w-full bg-slate-50 p-3 rounded-xl text-xs outline-none border-none"><option>本給</option><option>時間外</option><option>手当</option><option>臨時収入</option></select></div>
+                    <div id="reimbursement-section" class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <label class="flex items-center gap-3 cursor-pointer"><input type="checkbox" id="is-reimbursement" onchange="toggleReimbursementMode()" class="w-4 h-4 rounded text-blue-500"><span class="text-xs font-bold text-slate-600">立替記録モード</span></label>
+                        <div id="reimbursement-details" class="hidden mt-3 space-y-3">
+                            <select id="reimbursement-mode" onchange="$('split-detail').classList.toggle('hidden', this.value !== 'custom')" class="w-full bg-white p-2 rounded-lg text-xs border border-slate-200"><option value="split">きっちり半分 (50:50)</option><option value="custom">負担額を指定</option></select>
+                            <div id="split-detail" class="hidden grid grid-cols-2 gap-2 animate-fadeIn">
+                                <div><label class="text-[9px] text-slate-400 font-bold ml-1">Aの負担</label><input type="number" id="amount-a" oninput="autoCalculateSplit('A')" class="w-full bg-white p-2 rounded-lg text-xs border border-slate-200"></div>
+                                <div><label class="text-[9px] text-slate-400 font-bold ml-1">Bの負担</label><input type="number" id="amount-b" oninput="autoCalculateSplit('B')" class="w-full bg-white p-2 rounded-lg text-xs border border-slate-200"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-slate-800 text-white p-4 rounded-2xl font-black text-sm shadow-xl shadow-slate-200">記録を保存する</button>
+                </form>
+            </div>
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-50 flex justify-between items-center"><h3 class="font-black text-slate-700 text-sm">収支履歴</h3></div>
+                <div id="record-list" class="divide-y divide-slate-50"></div>
+            </div>
+        </div>
+        <div id="stats-screen" class="hidden space-y-6">
+            <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden">
+                <div class="relative z-10"><div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">今月の個人支出合計</div><div id="total-exp-display" class="text-4xl font-black text-slate-800 mb-2">¥0</div><div class="text-xs text-green-500 font-bold">歳入合計: <span id="total-inc-display">¥0</span></div></div>
+            </div>
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <h3 class="font-black text-slate-700 text-sm mb-6">項目別分析</h3>
+                <div class="flex justify-center mb-8 h-48"><canvas id="myChart"></canvas></div>
+                <div id="category-stats-list"></div>
+            </div>
+        </div>
+        <div id="settlement-screen" class="hidden space-y-4">
+            <h3 class="font-black text-slate-700 text-sm px-2">立替記録一覧 (最新20件)</h3>
+            <div id="reimbursement-list"></div>
+        </div>
+    </main>
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-slate-100 p-3 z-40">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <button onclick="switchTab('home')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 active"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg><span class="text-[10px] font-bold">記録</span></button>
+            <button onclick="switchTab('stats')" class="nav-btn flex flex-col items-center gap-1 text-slate-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg><span class="text-[10px] font-bold">分析</span></button>
+            <button onclick="switchTab('settlement')" class="nav-btn flex flex-col items-center gap-1 text-slate-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="text-[10px] font-bold">立替</span></button>
+        </div>
+    </nav>
+    <script>
+        document.getElementById('date').value = new Date().toISOString().slice(0, 10);
+    </script>
+</body>
+</html>
