@@ -109,20 +109,35 @@
 
             <!-- 分析 -->
             <div id="stats-screen" class="tab-content space-y-6">
+                <!-- 収支バランス -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
                     <h3 class="font-black text-xs text-slate-400 text-center uppercase tracking-widest">収支バランス (今月)</h3>
                     <div class="relative h-64">
                         <canvas id="balanceChart"></canvas>
                     </div>
                 </div>
+
+                <!-- 項目別内訳 (タップで詳細表示) -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                    <h3 class="font-black text-xs text-slate-400 mb-4 uppercase tracking-widest text-center">項目別内訳 (支出)</h3>
-                    <div class="relative h-64">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-black text-xs text-slate-400 uppercase tracking-widest" id="pie-chart-title">項目別内訳 (支出)</h3>
+                        <div class="flex gap-2">
+                            <button onclick="setPieType('expense')" id="pie-btn-exp" class="px-3 py-1 bg-pink-500 text-white text-[10px] rounded-full font-bold">支出</button>
+                            <button onclick="setPieType('income')" id="pie-btn-inc" class="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] rounded-full font-bold">収入</button>
+                        </div>
+                    </div>
+                    <div class="relative h-64 mb-6">
                         <canvas id="categoryPieChart"></canvas>
                     </div>
+                    <!-- 小分類リスト（ドリルダウン） -->
+                    <div id="drilldown-list" class="space-y-2 pt-4 border-t border-slate-50">
+                        <!-- ここに小項目の内訳を表示 -->
+                    </div>
                 </div>
+
+                <!-- 月次推移 -->
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                    <h3 class="font-black text-xs text-slate-400 mb-4 uppercase tracking-widest text-center">月次支出推移</h3>
+                    <h3 class="font-black text-xs text-slate-400 mb-4 uppercase tracking-widest text-center">月次支出推移 (直近6ヶ月)</h3>
                     <div class="h-48">
                         <canvas id="monthlyChart"></canvas>
                     </div>
@@ -138,7 +153,7 @@
                     <div id="settlement-large-display" class="text-4xl font-black">¥0</div>
                     <div id="settlement-direction-display" class="text-[10px] mt-2 text-slate-400 uppercase tracking-widest font-bold">CALCULATING...</div>
                 </div>
-                <h4 class="text-xs font-black text-slate-400 px-2 uppercase tracking-widest">最近の共有・精算履歴</h4>
+                <h4 class="text-xs font-black text-slate-400 px-2 uppercase tracking-widest">共有・精算履歴</h4>
                 <div id="reimbursement-list" class="space-y-3"></div>
             </div>
         </main>
@@ -175,7 +190,7 @@
         const APP_ID = "kakeibo-production-v3";
         const SECRET_PASS = "4632";
 
-        // カテゴリ体系の復元
+        // カテゴリ体系
         const CATEGORIES = {
             expense: {
                 必需: ["食費", "家賃", "移動", "宿泊", "娯楽", "もの", "健康", "社会保険料", "税金", "控除", "その他"],
@@ -192,16 +207,16 @@
             }
         };
 
-        // カラーパレット
         const COLORS = {
-            expense: ['#f43f5e', '#fb923c', '#fbbf24', '#facc15', '#ea580c', '#e11d48', '#be123c', '#9f1239'], // 暖色系
-            income: ['#0ea5e9', '#10b981', '#6366f1', '#8b5cf6'], // 寒色系
+            expense: ['#f43f5e', '#fb923c', '#fbbf24', '#facc15', '#ea580c', '#e11d48', '#be123c', '#9f1239'],
+            income: ['#0ea5e9', '#10b981', '#6366f1', '#8b5cf6'],
             settle: '#3b82f6'
         };
 
         let allRecords = [];
         let chartInstances = {};
         let selectedMonth = new Date().toISOString().slice(0, 7);
+        let pieType = 'expense'; // 'expense' or 'income'
         const currentUser = window.location.pathname.includes('b-3n7v5x-sub') ? 'B' : 'A';
         const partnerUser = currentUser === 'A' ? 'B' : 'A';
 
@@ -228,12 +243,10 @@
             const db = getFirestore(app);
 
             onAuthStateChanged(auth, async (user) => {
-                if (!user) {
-                    await signInAnonymously(auth);
-                } else {
+                if (!user) await signInAnonymously(auth);
+                else {
                     document.getElementById('user-display').innerText = `ユーザー${currentUser}`;
                     document.getElementById('user-display').className = `px-3 py-1 text-[10px] font-bold text-white ${currentUser === 'A' ? 'bg-indigo-500' : 'bg-pink-500'}`;
-                    
                     const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                     onSnapshot(q, (snap) => {
                         allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -247,7 +260,6 @@
                 const btn = document.getElementById('save-btn');
                 btn.disabled = true;
                 btn.innerText = "保存中...";
-
                 const type = document.querySelector('input[name="type"]:checked').value;
                 const amount = parseInt(document.getElementById('amount').value);
                 const isReim = document.getElementById('is-reimbursement').checked;
@@ -258,7 +270,7 @@
                     type: type,
                     amount: amount,
                     content: document.getElementById('content').value,
-                    categoryMain: type === 'settle' ? '精算' : document.getElementById('cat-main').value,
+                    categoryMain: type === 'settle' ? '精算' : (type === 'income' ? '歳入' : document.getElementById('cat-main').value),
                     categorySub: type === 'settle' ? '送金' : document.getElementById('cat-sub').value,
                     isReimbursement: (type === 'expense' && isReim) || type === 'settle',
                     amountA: type === 'settle' ? (currentUser === 'A' ? amount : 0) : (isReim ? parseInt(document.getElementById('amount-a').value) : (currentUser === 'A' ? amount : 0)),
@@ -271,13 +283,12 @@
                     document.getElementById('transaction-form').reset();
                     updateFormUI();
                 } catch (error) {
-                    alert("保存に失敗しました。ルールを確認してください。");
+                    alert("保存に失敗しました。");
                 } finally {
                     btn.disabled = false;
                     btn.innerText = "保存する";
                 }
             };
-
             window.deleteRecord = async (id) => { if(confirm('削除しますか？')) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', id)); };
         }
 
@@ -285,7 +296,6 @@
             const type = document.querySelector('input[name="type"]:checked').value;
             const catFields = document.getElementById('cat-fields');
             const catMainContainer = document.getElementById('cat-main-container');
-            const catSubContainer = document.getElementById('cat-sub-container');
             const reimSection = document.getElementById('reimbursement-section');
 
             if (type === 'settle') {
@@ -294,7 +304,7 @@
                 document.getElementById('is-reimbursement').checked = true;
             } else if (type === 'income') {
                 catFields.classList.remove('hidden');
-                catMainContainer.classList.add('hidden'); // 歳入は一段階
+                catMainContainer.classList.add('hidden');
                 reimSection.classList.add('hidden');
                 document.getElementById('is-reimbursement').checked = false;
                 loadCategories('income');
@@ -310,10 +320,8 @@
         function loadCategories(type) {
             const catMainSelect = document.getElementById('cat-main');
             const catSubSelect = document.getElementById('cat-sub');
-            
             if (type === 'income') {
                 catSubSelect.innerHTML = CATEGORIES.income.歳入.map(s => `<option value="${s}">${s}</option>`).join('');
-                document.getElementById('cat-main').value = '歳入';
             } else {
                 catMainSelect.innerHTML = Object.keys(CATEGORIES.expense).map(c => `<option value="${c}">${c}</option>`).join('');
                 catMainSelect.onchange = () => {
@@ -359,75 +367,70 @@
             render();
         };
 
+        window.setPieType = (type) => {
+            pieType = type;
+            document.getElementById('pie-chart-title').innerText = `項目別内訳 (${type === 'expense' ? '支出' : '収入'})`;
+            document.getElementById('pie-btn-exp').className = type === 'expense' ? 'px-3 py-1 bg-pink-500 text-white text-[10px] rounded-full font-bold' : 'px-3 py-1 bg-slate-100 text-slate-500 text-[10px] rounded-full font-bold';
+            document.getElementById('pie-btn-inc').className = type === 'income' ? 'px-3 py-1 bg-green-500 text-white text-[10px] rounded-full font-bold' : 'px-3 py-1 bg-slate-100 text-slate-500 text-[10px] rounded-full font-bold';
+            render();
+        };
+
         function render() {
             const monthRecords = allRecords.filter(r => r.date.startsWith(selectedMonth));
             const visibleRecords = monthRecords.filter(r => r.isReimbursement || r.createdBy === currentUser);
             visibleRecords.sort((a,b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
 
             const listEl = document.getElementById('record-list');
-            if(visibleRecords.length === 0) {
-                listEl.innerHTML = `<div class="py-10 text-slate-400 text-xs text-center">今月の記録はありません</div>`;
-            } else {
-                listEl.innerHTML = visibleRecords.map(r => {
-                    const isSettle = r.type === 'settle';
-                    const isIncome = r.type === 'income';
-                    const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
-                    return `
-                        <div class="p-4 flex justify-between items-center bg-white">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-[8px] px-1.5 py-0.5 rounded-md font-bold text-white ${r.createdBy === 'A' ? 'bg-indigo-400' : 'bg-pink-400'}">${r.createdBy}</span>
-                                    <span class="text-[9px] text-slate-400 font-bold">${r.date}</span>
-                                    ${r.isReimbursement && !isSettle ? '<span class="text-[8px] bg-pink-50 text-pink-400 px-1 rounded">立替</span>' : ''}
-                                </div>
-                                <div class="text-xs font-bold text-slate-700">${r.content}</div>
-                                <div class="text-[9px] text-slate-400">${r.categoryMain} ❯ ${r.categorySub}</div>
+            if(visibleRecords.length === 0) listEl.innerHTML = `<div class="py-10 text-slate-400 text-xs text-center">今月の記録はありません</div>`;
+            else {
+                listEl.innerHTML = visibleRecords.map(r => `
+                    <div class="p-4 flex justify-between items-center bg-white border-b border-slate-50">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[8px] px-1.5 py-0.5 rounded-md font-bold text-white ${r.createdBy === 'A' ? 'bg-indigo-400' : 'bg-pink-400'}">${r.createdBy}</span>
+                                <span class="text-[9px] text-slate-400 font-bold">${r.date}</span>
                             </div>
-                            <div class="text-right flex items-center gap-4">
-                                <div class="text-sm font-black ${isIncome ? 'text-green-500' : (isSettle ? 'text-blue-500' : 'text-slate-800')}">
-                                    ${isIncome ? '+' : (isSettle ? '⇄' : '-')}¥${myAmount.toLocaleString()}
-                                </div>
-                                <button onclick="deleteRecord('${r.id}')" class="text-slate-200 hover:text-red-400 transition-colors text-lg">×</button>
-                            </div>
+                            <div class="text-xs font-bold text-slate-700">${r.content}</div>
+                            <div class="text-[9px] text-slate-400">${r.categoryMain} ❯ ${r.categorySub}</div>
                         </div>
-                    `;
-                }).join('');
+                        <div class="text-right flex items-center gap-4">
+                            <div class="text-sm font-black ${r.type==='income'?'text-green-500':(r.type==='settle'?'text-blue-500':'text-slate-800')}">
+                                ¥${(currentUser==='A'?r.amountA:r.amountB).toLocaleString()}
+                            </div>
+                            <button onclick="deleteRecord('${r.id}')" class="text-slate-200 hover:text-red-400 text-lg">×</button>
+                        </div>
+                    </div>
+                `).join('');
             }
 
-            // 精算ロジックの修正
-            // 立替分: Aが払ったBの分は Aのプラス、Bが払ったAの分は Aのマイナス
-            // 精算(送金)分: AがBに送金したら Aのプラス（債務減）、BがAに送金したら Aのマイナス（債務増）
             let netA = 0;
             allRecords.forEach(r => {
-                if (r.type === 'settle') {
-                    // Aが送金した場合、Aが相手に貸している状態（もしくは借金が減る状態）になる
-                    if (r.createdBy === 'A') netA += r.amount;
-                    else netA -= r.amount;
-                } else if (r.isReimbursement) {
-                    // Aが支払ったBの負担額は Aの債権
-                    if (r.createdBy === 'A') netA += r.amountB;
-                    // Bが支払ったAの負担額は Aの債務
-                    else netA -= r.amountA;
-                }
+                if (r.type === 'settle') { if (r.createdBy === 'A') netA += r.amount; else netA -= r.amount; }
+                else if (r.isReimbursement) { if (r.createdBy === 'A') netA += r.amountB; else netA -= r.amountA; }
             });
 
             const displayBal = currentUser === 'A' ? netA : -netA;
-            // displayBal > 0 なら「相手からもらう」、 < 0 なら「相手に払う」
             document.getElementById('settlement-large-display').innerText = `¥${Math.abs(displayBal).toLocaleString()}`;
             document.getElementById('settlement-direction-display').innerText = displayBal > 0 ? `${partnerUser} から受取予定` : (displayBal < 0 ? `${partnerUser} へ支払予定` : '精算済み');
 
             document.getElementById('reimbursement-list').innerHTML = allRecords
                 .filter(r => r.isReimbursement || r.type === 'settle')
-                .sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 10)
+                .sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 15)
                 .map(r => `
-                    <div class="p-4 bg-white rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
-                        <div class="flex-1">
-                            <div class="text-[8px] font-black ${r.type==='settle'?'text-blue-500':'text-slate-400'} uppercase mb-1">${r.date} ${r.type==='settle'?'[精算送金]':`立替 by ${r.createdBy}`}</div>
-                            <div class="text-[11px] font-bold text-slate-800">${r.content}</div>
-                        </div>
-                        <div class="text-right">
+                    <div class="p-4 bg-white rounded-2xl border border-slate-100 flex flex-col shadow-sm">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-[8px] font-black ${r.type==='settle'?'text-blue-500':'text-slate-400'} uppercase mb-1">${r.date} ${r.type==='settle'?'[精算送金]':`立替 by ${r.createdBy}`}</div>
+                                <div class="text-[11px] font-bold text-slate-800">${r.content}</div>
+                            </div>
                             <div class="text-xs font-black text-slate-700">¥${r.amount.toLocaleString()}</div>
                         </div>
+                        ${r.type!=='settle' ? `
+                            <div class="mt-2 pt-2 border-t border-slate-50 flex justify-between">
+                                <span class="text-[9px] text-slate-400">A負担: ¥${r.amountA.toLocaleString()}</span>
+                                <span class="text-[9px] text-slate-400">B負担: ¥${r.amountB.toLocaleString()}</span>
+                            </div>
+                        `: ''}
                     </div>
                 `).join('');
 
@@ -437,21 +440,21 @@
         function updateStats(monthData) {
             const myRecords = monthData.filter(r => r.createdBy === currentUser || r.isReimbursement);
             
-            // 収支集計
-            const expenseByMain = {};
-            const incomeBySub = {};
+            // カテゴリ詳細集計 (ドリルダウン用)
+            const mainTotals = {};
+            const subTotals = {}; // subTotals[main][sub]
             let totalIn = 0;
             let totalOut = 0;
 
             myRecords.forEach(r => {
                 const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
-                if (r.type === 'expense') {
-                    expenseByMain[r.categoryMain] = (expenseByMain[r.categoryMain] || 0) + myAmount;
-                    totalOut += myAmount;
-                } else if (r.type === 'income') {
-                    incomeBySub[r.categorySub] = (incomeBySub[r.categorySub] || 0) + myAmount;
-                    totalIn += myAmount;
+                if (r.type === pieType) {
+                    mainTotals[r.categoryMain] = (mainTotals[r.categoryMain] || 0) + myAmount;
+                    if(!subTotals[r.categoryMain]) subTotals[r.categoryMain] = {};
+                    subTotals[r.categoryMain][r.categorySub] = (subTotals[r.categoryMain][r.categorySub] || 0) + myAmount;
                 }
+                if(r.type === 'income') totalIn += myAmount;
+                if(r.type === 'expense') totalOut += myAmount;
             });
 
             // グラフ1: 収支バランス
@@ -459,44 +462,67 @@
             chartInstances.balance = new Chart(document.getElementById('balanceChart'), {
                 type: 'bar',
                 data: {
-                    labels: ['今月の収支'],
+                    labels: ['収支'],
                     datasets: [
                         { label: '収入', data: [totalIn], backgroundColor: COLORS.income[0], borderRadius: 8 },
                         { label: '支出', data: [totalOut], backgroundColor: COLORS.expense[0], borderRadius: 8 }
                     ]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
-                    scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } } }
-                }
+                options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
             });
 
-            // グラフ2: 項目別内訳 (支出)
+            // グラフ2: 項目別内訳 (タップで詳細)
             if(chartInstances.category) chartInstances.category.destroy();
-            const catLabels = Object.keys(expenseByMain);
+            const labels = Object.keys(mainTotals);
             chartInstances.category = new Chart(document.getElementById('categoryPieChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: catLabels,
+                    labels: labels,
                     datasets: [{
-                        data: Object.values(expenseByMain),
-                        backgroundColor: COLORS.expense,
+                        data: Object.values(mainTotals),
+                        backgroundColor: pieType === 'expense' ? COLORS.expense : COLORS.income,
                         borderWidth: 0
                     }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    maintainAspectRatio: false,
                     plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 9 } } } },
                     cutout: '60%'
                 }
             });
 
-            // グラフ3: 月次推移
+            // 詳細リスト表示 (小分類)
+            const drillEl = document.getElementById('drilldown-list');
+            if(labels.length === 0) drillEl.innerHTML = `<div class="text-[10px] text-slate-400 text-center py-4">データがありません</div>`;
+            else {
+                drillEl.innerHTML = labels.map((main, i) => {
+                    const subs = subTotals[main];
+                    const color = (pieType === 'expense' ? COLORS.expense : COLORS.income)[i % 8];
+                    return `
+                        <div class="p-3 bg-slate-50 rounded-xl">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-black" style="color: ${color}">${main}</span>
+                                <span class="text-[10px] font-bold">¥${mainTotals[main].toLocaleString()}</span>
+                            </div>
+                            <div class="space-y-1">
+                                ${Object.keys(subs).map(sub => `
+                                    <div class="flex justify-between text-[9px] text-slate-400 px-2">
+                                        <span>• ${sub}</span>
+                                        <span>¥${subs[sub].toLocaleString()}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // グラフ3: 動的な月次推移 (選択月から遡る)
             const monthLabels = [];
             const monthExpenses = [];
+            const baseDate = new Date(selectedMonth + "-01");
             for (let i = 5; i >= 0; i--) {
-                const d = new Date();
+                const d = new Date(baseDate);
                 d.setMonth(d.getMonth() - i);
                 const m = d.toISOString().slice(0, 7);
                 monthLabels.push(m.split('-')[1] + '月');
@@ -524,7 +550,7 @@
                 options: {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
+                    scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
                 }
             });
         }
