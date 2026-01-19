@@ -17,11 +17,6 @@
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #f8fafc; z-index: 100; display: flex; align-items: center; justify-content: center;
         }
-        .modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 50; display: none; align-items: center; justify-content: center;
-        }
-        .modal.active { display: flex; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen pb-24 font-sans text-slate-900">
@@ -30,7 +25,7 @@
     <div id="lock-screen">
         <div class="max-w-xs w-full p-8 bg-white rounded-3xl shadow-xl text-center space-y-4">
             <div class="w-16 h-16 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002-2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2-2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
             </div>
             <h2 class="font-black text-slate-700">合言葉を入力</h2>
             <input type="password" id="pass-input" placeholder="Password" class="w-full p-3 bg-slate-100 rounded-xl text-center outline-none focus:ring-2 focus:ring-pink-300">
@@ -39,26 +34,16 @@
         </div>
     </div>
 
-    <!-- 内訳詳細モーダル -->
-    <div id="category-modal" class="modal" onclick="closeModal()">
-        <div class="bg-white w-11/12 max-w-sm rounded-3xl p-6 space-y-4" onclick="event.stopPropagation()">
-            <h3 id="modal-title" class="font-black text-lg text-slate-800">カテゴリ内訳</h3>
-            <div id="modal-content" class="space-y-2 max-h-60 overflow-y-auto"></div>
-            <button onclick="closeModal()" class="w-full bg-slate-100 p-3 rounded-xl font-bold text-slate-500">閉じる</button>
-        </div>
-    </div>
-
     <div id="app-content" class="hidden">
-        <!-- Header -->
         <header class="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-100 p-4 text-center">
             <div class="max-w-md mx-auto flex justify-between items-center">
                 <div class="flex items-center gap-2">
-                    <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-full">
-                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"></path></svg>
+                    <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"></path></svg>
                     </button>
                     <span id="current-month-display" class="font-black text-slate-700 text-sm w-24">...</span>
-                    <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-full">
-                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"></path></svg>
+                    <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"></path></svg>
                     </button>
                 </div>
                 <div id="user-display" class="px-3 py-1 text-[10px] font-bold rounded-full">...</div>
@@ -66,7 +51,7 @@
         </header>
 
         <main class="max-w-md mx-auto p-4 space-y-6">
-            <!-- 記録画面 -->
+            <!-- ホーム -->
             <div id="home-screen" class="tab-content active space-y-6">
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                     <form id="transaction-form" class="space-y-4">
@@ -91,55 +76,69 @@
                         </div>
                         <input type="text" id="content" placeholder="内容" required class="w-full bg-slate-50 p-3 rounded-xl text-sm outline-none">
                         
-                        <!-- カテゴリ：支出・収入用 -->
                         <div id="cat-fields" class="grid grid-cols-2 gap-3">
-                            <select id="cat-main" class="bg-slate-50 p-3 rounded-xl text-xs outline-none"></select>
-                            <select id="cat-sub" class="bg-slate-50 p-3 rounded-xl text-xs outline-none"></select>
+                            <div id="cat-main-container">
+                                <label class="text-[9px] text-slate-400 ml-1">シチュエーション</label>
+                                <select id="cat-main" class="w-full bg-slate-50 p-3 rounded-xl text-xs outline-none"></select>
+                            </div>
+                            <div id="cat-sub-container">
+                                <label class="text-[9px] text-slate-400 ml-1">対象</label>
+                                <select id="cat-sub" class="w-full bg-slate-50 p-3 rounded-xl text-xs outline-none"></select>
+                            </div>
                         </div>
 
-                        <!-- 立替 (支出時のみ) -->
-                        <div id="reimbursement-section" class="bg-slate-50 p-4 rounded-2xl hidden">
+                        <div id="reimbursement-section" class="bg-slate-50 p-4 rounded-2xl hidden border border-pink-100">
                             <label class="flex items-center gap-3 cursor-pointer">
                                 <input type="checkbox" id="is-reimbursement" onchange="toggleReimDetails()" class="w-4 h-4 text-pink-500">
                                 <span class="text-xs font-bold text-slate-600">相手の分も含む（立替）</span>
                             </label>
                             <div id="reimbursement-details" class="hidden mt-3 grid grid-cols-2 gap-2">
-                                <div><label class="text-[9px] text-slate-400 block ml-1">A負担</label><input type="number" id="amount-a" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('A')"></div>
-                                <div><label class="text-[9px] text-slate-400 block ml-1">B負担</label><input type="number" id="amount-b" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('B')"></div>
+                                <div><label class="text-[9px] text-slate-400 block ml-1">A負担額</label><input type="number" id="amount-a" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('A')"></div>
+                                <div><label class="text-[9px] text-slate-400 block ml-1">B負担額</label><input type="number" id="amount-b" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('B')"></div>
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-slate-800 text-white p-4 rounded-2xl font-black shadow-lg">保存する</button>
+                        <button type="submit" id="save-btn" class="w-full bg-slate-800 text-white p-4 rounded-2xl font-black shadow-lg active:scale-95 transition-transform">保存する</button>
                     </form>
                 </div>
 
                 <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div id="record-list" class="divide-y divide-slate-50"></div>
+                    <div id="record-list" class="divide-y divide-slate-50 text-center py-10 text-slate-400 text-xs">読み込み中...</div>
                 </div>
             </div>
 
-            <!-- 分析画面 -->
+            <!-- 分析 -->
             <div id="stats-screen" class="tab-content space-y-6">
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
-                    <h3 class="font-black text-xs text-slate-400 text-center uppercase tracking-widest">収支バランス & 内訳</h3>
+                    <h3 class="font-black text-xs text-slate-400 text-center uppercase tracking-widest">収支バランス (今月)</h3>
                     <div class="relative h-64">
                         <canvas id="balanceChart"></canvas>
                     </div>
-                    <p class="text-[10px] text-slate-400 text-center">棒をタップして小分類の内訳を確認</p>
                 </div>
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                    <h3 class="font-black text-xs text-slate-400 mb-4 uppercase tracking-widest text-center">月次支出推移 (過去6ヶ月)</h3>
-                    <canvas id="monthlyChart"></canvas>
+                    <h3 class="font-black text-xs text-slate-400 mb-4 uppercase tracking-widest text-center">項目別内訳 (支出)</h3>
+                    <div class="relative h-64">
+                        <canvas id="categoryPieChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="font-black text-xs text-slate-400 mb-4 uppercase tracking-widest text-center">月次支出推移</h3>
+                    <div class="h-48">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- 立替画面 -->
+            <!-- 立替精算 -->
             <div id="settlement-screen" class="tab-content space-y-4">
-                <div class="bg-slate-800 text-white p-8 rounded-3xl text-center shadow-xl">
+                <div class="bg-slate-800 text-white p-8 rounded-3xl text-center shadow-xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10">
+                        <svg class="w-20 h-20" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path></svg>
+                    </div>
                     <div id="settlement-large-display" class="text-4xl font-black">¥0</div>
                     <div id="settlement-direction-display" class="text-[10px] mt-2 text-slate-400 uppercase tracking-widest font-bold">CALCULATING...</div>
                 </div>
-                <h3 class="px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">立替・精算の履歴</h3>
+                <h4 class="text-xs font-black text-slate-400 px-2 uppercase tracking-widest">最近の共有・精算履歴</h4>
                 <div id="reimbursement-list" class="space-y-3"></div>
             </div>
         </main>
@@ -156,7 +155,7 @@
                 </button>
                 <button onclick="switchTab('settlement')" id="nav-settlement" class="nav-btn flex flex-col items-center gap-1 text-slate-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    <span class="text-[10px] font-bold">立替</span>
+                    <span class="text-[10px] font-bold">精算</span>
                 </button>
             </div>
         </nav>
@@ -167,30 +166,37 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 前回の構成情報を維持
         const firebaseConfig = {
             apiKey: "AIzaSyCHXpyZApKA19bKbui4-pKNjVag7Y3A0ww",
             authDomain: "kakeibo-2944a.firebaseapp.com",
             projectId: "kakeibo-2944a",
             appId: "1:628237748010:web:23cbe6250a1a2f5ba04053"
         };
-        const APP_ID = "kakeibo-production-v3"; // 以前のIDに戻す
+        const APP_ID = "kakeibo-production-v3";
         const SECRET_PASS = "4632";
 
+        // カテゴリ体系の復元
         const CATEGORIES = {
             expense: {
-                必需: ["食費", "家賃", "光熱費", "通信費", "保険", "日用品"],
-                仕事: ["交通費", "ランチ", "書籍", "その他"],
-                趣味: ["ゲーム", "映画", "イベント", "旅行"],
-                デート: ["外食", "レジャー", "プレゼント"],
-                友達: ["交際費", "プレゼント"],
-                その他: ["雑費", "不明"]
+                必需: ["食費", "家賃", "移動", "宿泊", "娯楽", "もの", "健康", "社会保険料", "税金", "控除", "その他"],
+                仕事: ["食費", "移動", "宿泊", "娯楽", "もの", "健康", "その他"],
+                趣味: ["食費", "移動", "宿泊", "娯楽", "もの", "健康", "その他"],
+                デート: ["食費", "移動", "宿泊", "娯楽", "もの", "健康", "その他"],
+                友達: ["食費", "移動", "宿泊", "娯楽", "もの", "健康", "その他"],
+                家族: ["食費", "移動", "宿泊", "娯楽", "もの", "健康", "その他"],
+                他人のため: ["食費", "移動", "宿泊", "娯楽", "もの", "健康", "その他"],
+                その他: ["食費", "移動", "宿泊", "娯楽", "もの", "健康", "その他"]
             },
             income: {
-                給与: ["本給", "残業代", "賞与"],
-                副業: ["売上", "報酬"],
-                その他: ["還付金", "プレゼント"]
+                歳入: ["本給", "時間外", "手当", "臨時"]
             }
+        };
+
+        // カラーパレット
+        const COLORS = {
+            expense: ['#f43f5e', '#fb923c', '#fbbf24', '#facc15', '#ea580c', '#e11d48', '#be123c', '#9f1239'], // 暖色系
+            income: ['#0ea5e9', '#10b981', '#6366f1', '#8b5cf6'], // 寒色系
+            settle: '#3b82f6'
         };
 
         let allRecords = [];
@@ -199,7 +205,6 @@
         const currentUser = window.location.pathname.includes('b-3n7v5x-sub') ? 'B' : 'A';
         const partnerUser = currentUser === 'A' ? 'B' : 'A';
 
-        // --- Security & Init ---
         window.checkPass = () => {
             if (document.getElementById('pass-input').value === SECRET_PASS) {
                 localStorage.setItem('kakeibo_v4_auth', 'true');
@@ -222,13 +227,13 @@
             const auth = getAuth(app);
             const db = getFirestore(app);
 
-            onAuthStateChanged(auth, (user) => {
-                if (!user) signInAnonymously(auth);
-                else {
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    await signInAnonymously(auth);
+                } else {
                     document.getElementById('user-display').innerText = `ユーザー${currentUser}`;
                     document.getElementById('user-display').className = `px-3 py-1 text-[10px] font-bold text-white ${currentUser === 'A' ? 'bg-indigo-500' : 'bg-pink-500'}`;
                     
-                    // 以前のコレクションパス artifacts/APP_ID/public/data/transactions を使用
                     const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                     onSnapshot(q, (snap) => {
                         allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -239,11 +244,14 @@
 
             document.getElementById('transaction-form').onsubmit = async (e) => {
                 e.preventDefault();
+                const btn = document.getElementById('save-btn');
+                btn.disabled = true;
+                btn.innerText = "保存中...";
+
                 const type = document.querySelector('input[name="type"]:checked').value;
                 const amount = parseInt(document.getElementById('amount').value);
                 const isReim = document.getElementById('is-reimbursement').checked;
 
-                // 以前の仕様に合わせたデータ構造
                 const data = {
                     createdBy: currentUser,
                     date: document.getElementById('date').value,
@@ -258,9 +266,16 @@
                     createdAt: Timestamp.now()
                 };
 
-                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), data);
-                document.getElementById('transaction-form').reset();
-                updateFormUI();
+                try {
+                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), data);
+                    document.getElementById('transaction-form').reset();
+                    updateFormUI();
+                } catch (error) {
+                    alert("保存に失敗しました。ルールを確認してください。");
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = "保存する";
+                }
             };
 
             window.deleteRecord = async (id) => { if(confirm('削除しますか？')) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'transactions', id)); };
@@ -269,6 +284,8 @@
         window.updateFormUI = () => {
             const type = document.querySelector('input[name="type"]:checked').value;
             const catFields = document.getElementById('cat-fields');
+            const catMainContainer = document.getElementById('cat-main-container');
+            const catSubContainer = document.getElementById('cat-sub-container');
             const reimSection = document.getElementById('reimbursement-section');
 
             if (type === 'settle') {
@@ -277,11 +294,13 @@
                 document.getElementById('is-reimbursement').checked = true;
             } else if (type === 'income') {
                 catFields.classList.remove('hidden');
+                catMainContainer.classList.add('hidden'); // 歳入は一段階
                 reimSection.classList.add('hidden');
                 document.getElementById('is-reimbursement').checked = false;
                 loadCategories('income');
             } else {
                 catFields.classList.remove('hidden');
+                catMainContainer.classList.remove('hidden');
                 reimSection.classList.remove('hidden');
                 loadCategories('expense');
             }
@@ -291,12 +310,18 @@
         function loadCategories(type) {
             const catMainSelect = document.getElementById('cat-main');
             const catSubSelect = document.getElementById('cat-sub');
-            catMainSelect.innerHTML = Object.keys(CATEGORIES[type]).map(c => `<option value="${c}">${c}</option>`).join('');
-            catMainSelect.onchange = () => {
-                const main = catMainSelect.value;
-                catSubSelect.innerHTML = CATEGORIES[type][main].map(s => `<option value="${s}">${s}</option>`).join('');
-            };
-            catMainSelect.onchange();
+            
+            if (type === 'income') {
+                catSubSelect.innerHTML = CATEGORIES.income.歳入.map(s => `<option value="${s}">${s}</option>`).join('');
+                document.getElementById('cat-main').value = '歳入';
+            } else {
+                catMainSelect.innerHTML = Object.keys(CATEGORIES.expense).map(c => `<option value="${c}">${c}</option>`).join('');
+                catMainSelect.onchange = () => {
+                    const main = catMainSelect.value;
+                    catSubSelect.innerHTML = CATEGORIES.expense[main].map(s => `<option value="${s}">${s}</option>`).join('');
+                };
+                catMainSelect.onchange();
+            }
         }
 
         window.toggleReimDetails = () => {
@@ -336,129 +361,138 @@
 
         function render() {
             const monthRecords = allRecords.filter(r => r.date.startsWith(selectedMonth));
-            // 本人の記録または立替分を表示
             const visibleRecords = monthRecords.filter(r => r.isReimbursement || r.createdBy === currentUser);
             visibleRecords.sort((a,b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
 
-            document.getElementById('record-list').innerHTML = visibleRecords.map(r => {
-                const isSettle = r.type === 'settle';
-                const isIncome = r.type === 'income';
-                const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
-                return `
-                    <div class="p-4 flex justify-between items-center bg-white">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="text-[8px] px-1.5 py-0.5 rounded-md font-bold text-white ${r.createdBy === 'A' ? 'bg-indigo-400' : 'bg-pink-400'}">${r.createdBy}</span>
-                                <span class="text-[9px] text-slate-400 font-bold">${r.date}</span>
+            const listEl = document.getElementById('record-list');
+            if(visibleRecords.length === 0) {
+                listEl.innerHTML = `<div class="py-10 text-slate-400 text-xs text-center">今月の記録はありません</div>`;
+            } else {
+                listEl.innerHTML = visibleRecords.map(r => {
+                    const isSettle = r.type === 'settle';
+                    const isIncome = r.type === 'income';
+                    const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
+                    return `
+                        <div class="p-4 flex justify-between items-center bg-white">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[8px] px-1.5 py-0.5 rounded-md font-bold text-white ${r.createdBy === 'A' ? 'bg-indigo-400' : 'bg-pink-400'}">${r.createdBy}</span>
+                                    <span class="text-[9px] text-slate-400 font-bold">${r.date}</span>
+                                    ${r.isReimbursement && !isSettle ? '<span class="text-[8px] bg-pink-50 text-pink-400 px-1 rounded">立替</span>' : ''}
+                                </div>
+                                <div class="text-xs font-bold text-slate-700">${r.content}</div>
+                                <div class="text-[9px] text-slate-400">${r.categoryMain} ❯ ${r.categorySub}</div>
                             </div>
-                            <div class="text-xs font-bold text-slate-700">${r.content}</div>
-                            <div class="text-[9px] text-slate-400">${r.categoryMain} ❯ ${r.categorySub}</div>
-                        </div>
-                        <div class="text-right flex items-center gap-4">
-                            <div class="text-sm font-black ${isIncome ? 'text-green-500' : (isSettle ? 'text-blue-500' : 'text-slate-800')}">
-                                ${isIncome ? '+' : (isSettle ? '⇄' : '-')}¥${myAmount.toLocaleString()}
+                            <div class="text-right flex items-center gap-4">
+                                <div class="text-sm font-black ${isIncome ? 'text-green-500' : (isSettle ? 'text-blue-500' : 'text-slate-800')}">
+                                    ${isIncome ? '+' : (isSettle ? '⇄' : '-')}¥${myAmount.toLocaleString()}
+                                </div>
+                                <button onclick="deleteRecord('${r.id}')" class="text-slate-200 hover:text-red-400 transition-colors text-lg">×</button>
                             </div>
-                            <button onclick="deleteRecord('${r.id}')" class="text-slate-200 hover:text-red-400 transition-colors">×</button>
                         </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            }
 
-            // 精算ロジック (累積計算)
-            let netA = 0; // Aから見た収支。プラスならAが受取、マイナスならAが支払。
+            // 精算ロジックの修正
+            // 立替分: Aが払ったBの分は Aのプラス、Bが払ったAの分は Aのマイナス
+            // 精算(送金)分: AがBに送金したら Aのプラス（債務減）、BがAに送金したら Aのマイナス（債務増）
+            let netA = 0;
             allRecords.forEach(r => {
                 if (r.type === 'settle') {
-                    // Aが払った(送金) = Aの未精算債権が減る = Aから見てマイナス
-                    if (r.createdBy === 'A') netA -= r.amount;
-                    else netA += r.amount;
+                    // Aが送金した場合、Aが相手に貸している状態（もしくは借金が減る状態）になる
+                    if (r.createdBy === 'A') netA += r.amount;
+                    else netA -= r.amount;
                 } else if (r.isReimbursement) {
-                    // Aが作成した立替 = B負担分(amountB)だけAの債権が増える
+                    // Aが支払ったBの負担額は Aの債権
                     if (r.createdBy === 'A') netA += r.amountB;
-                    // Bが作成した立替 = A負担分(amountA)だけAの債務が増える
+                    // Bが支払ったAの負担額は Aの債務
                     else netA -= r.amountA;
                 }
             });
 
             const displayBal = currentUser === 'A' ? netA : -netA;
+            // displayBal > 0 なら「相手からもらう」、 < 0 なら「相手に払う」
             document.getElementById('settlement-large-display').innerText = `¥${Math.abs(displayBal).toLocaleString()}`;
             document.getElementById('settlement-direction-display').innerText = displayBal > 0 ? `${partnerUser} から受取予定` : (displayBal < 0 ? `${partnerUser} へ支払予定` : '精算済み');
 
-            // 立替履歴一覧 (負担額を表示)
             document.getElementById('reimbursement-list').innerHTML = allRecords
                 .filter(r => r.isReimbursement || r.type === 'settle')
-                .sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 15)
+                .sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 10)
                 .map(r => `
                     <div class="p-4 bg-white rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
                         <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="text-[8px] font-black ${r.type==='settle'?'text-blue-500':'text-slate-400'} uppercase tracking-tighter">${r.date} ${r.type==='settle'?'[精算完了]':`立替 by ${r.createdBy}`}</span>
-                            </div>
+                            <div class="text-[8px] font-black ${r.type==='settle'?'text-blue-500':'text-slate-400'} uppercase mb-1">${r.date} ${r.type==='settle'?'[精算送金]':`立替 by ${r.createdBy}`}</div>
                             <div class="text-[11px] font-bold text-slate-800">${r.content}</div>
-                            <div class="text-[9px] text-slate-400 mt-1 flex gap-2">
-                                <span class="bg-indigo-50 text-indigo-500 px-1 rounded">A: ¥${r.amountA.toLocaleString()}</span>
-                                <span class="bg-pink-50 text-pink-500 px-1 rounded">B: ¥${r.amountB.toLocaleString()}</span>
-                            </div>
                         </div>
-                        <div class="text-right ml-4">
+                        <div class="text-right">
                             <div class="text-xs font-black text-slate-700">¥${r.amount.toLocaleString()}</div>
                         </div>
                     </div>
                 `).join('');
 
-            updateStats(visibleRecords);
+            updateStats(monthRecords);
         }
 
         function updateStats(monthData) {
-            const expenseByMain = {};
-            const incomeByMain = {};
+            const myRecords = monthData.filter(r => r.createdBy === currentUser || r.isReimbursement);
             
-            monthData.forEach(r => {
-                const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
-                if (r.type === 'expense') expenseByMain[r.categoryMain] = (expenseByMain[r.categoryMain] || 0) + myAmount;
-                if (r.type === 'income') incomeByMain[r.categoryMain] = (incomeByMain[r.categoryMain] || 0) + myAmount;
-            });
+            // 収支集計
+            const expenseByMain = {};
+            const incomeBySub = {};
+            let totalIn = 0;
+            let totalOut = 0;
 
-            // 1. 収支＆内訳グラフ (Chart.js Bar)
-            if(chartInstances.balance) chartInstances.balance.destroy();
-            const ctx = document.getElementById('balanceChart').getContext('2d');
-            chartInstances.balance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['収入', '支出'],
-                    datasets: [
-                        ...Object.keys(incomeByMain).map(cat => ({
-                            label: cat,
-                            data: [incomeByMain[cat], 0],
-                            backgroundColor: '#10b981',
-                            stack: 'in'
-                        })),
-                        ...Object.keys(expenseByMain).map(cat => ({
-                            label: cat,
-                            data: [0, expenseByMain[cat]],
-                            backgroundColor: '#f43f5e',
-                            stack: 'out'
-                        }))
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false } },
-                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
-                    },
-                    onClick: (e, elements) => {
-                        if (elements.length > 0) {
-                            const datasetIndex = elements[0].datasetIndex;
-                            const catName = chartInstances.balance.data.datasets[datasetIndex].label;
-                            showCategoryDetail(catName, monthData);
-                        }
-                    }
+            myRecords.forEach(r => {
+                const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
+                if (r.type === 'expense') {
+                    expenseByMain[r.categoryMain] = (expenseByMain[r.categoryMain] || 0) + myAmount;
+                    totalOut += myAmount;
+                } else if (r.type === 'income') {
+                    incomeBySub[r.categorySub] = (incomeBySub[r.categorySub] || 0) + myAmount;
+                    totalIn += myAmount;
                 }
             });
 
-            // 2. 月次推移 (過去6ヶ月)
+            // グラフ1: 収支バランス
+            if(chartInstances.balance) chartInstances.balance.destroy();
+            chartInstances.balance = new Chart(document.getElementById('balanceChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['今月の収支'],
+                    datasets: [
+                        { label: '収入', data: [totalIn], backgroundColor: COLORS.income[0], borderRadius: 8 },
+                        { label: '支出', data: [totalOut], backgroundColor: COLORS.expense[0], borderRadius: 8 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } } }
+                }
+            });
+
+            // グラフ2: 項目別内訳 (支出)
+            if(chartInstances.category) chartInstances.category.destroy();
+            const catLabels = Object.keys(expenseByMain);
+            chartInstances.category = new Chart(document.getElementById('categoryPieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: Object.values(expenseByMain),
+                        backgroundColor: COLORS.expense,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 9 } } } },
+                    cutout: '60%'
+                }
+            });
+
+            // グラフ3: 月次推移
             const monthLabels = [];
             const monthExpenses = [];
             for (let i = 5; i >= 0; i--) {
@@ -466,7 +500,7 @@
                 d.setMonth(d.getMonth() - i);
                 const m = d.toISOString().slice(0, 7);
                 monthLabels.push(m.split('-')[1] + '月');
-                const sum = allRecords.filter(r => r.date.startsWith(m) && r.type === 'expense')
+                const sum = allRecords.filter(r => r.date.startsWith(m) && r.type === 'expense' && (r.createdBy === currentUser || r.isReimbursement))
                                       .reduce((s, r) => s + (currentUser === 'A' ? r.amountA : r.amountB), 0);
                 monthExpenses.push(sum);
             }
@@ -477,10 +511,10 @@
                 data: {
                     labels: monthLabels,
                     datasets: [{
-                        label: '支出推移',
+                        label: '支出',
                         data: monthExpenses,
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderColor: COLORS.expense[0],
+                        backgroundColor: 'rgba(244, 63, 94, 0.1)',
                         borderWidth: 3,
                         pointRadius: 4,
                         fill: true,
@@ -488,30 +522,12 @@
                     }]
                 },
                 options: {
+                    maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, grid: { color: '#f8fafc' } } }
+                    scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
                 }
             });
         }
-
-        window.showCategoryDetail = (mainCat, data) => {
-            const subMap = {};
-            data.filter(r => r.categoryMain === mainCat).forEach(r => {
-                const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
-                subMap[r.categorySub] = (subMap[r.categorySub] || 0) + myAmount;
-            });
-
-            document.getElementById('modal-title').innerText = `${mainCat} の小分類`;
-            document.getElementById('modal-content').innerHTML = Object.entries(subMap).map(([sub, val]) => `
-                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-                    <span class="text-xs font-bold text-slate-600">${sub}</span>
-                    <span class="text-sm font-black">¥${val.toLocaleString()}</span>
-                </div>
-            `).join('');
-            document.getElementById('category-modal').classList.add('active');
-        };
-
-        window.closeModal = () => document.getElementById('category-modal').classList.remove('active');
 
         window.onload = () => {
             document.getElementById('date').value = new Date().toISOString().slice(0, 10);
