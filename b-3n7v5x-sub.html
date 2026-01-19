@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ふたりの家計簿 Pro</title>
+    <title>ざっくり家計簿ver.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -26,7 +26,7 @@
 </head>
 <body class="bg-slate-50 min-h-screen pb-24 font-sans text-slate-900">
 
-    <!-- ロック画面 -->
+    <!-- パスワードロック -->
     <div id="lock-screen">
         <div class="max-w-xs w-full p-8 bg-white rounded-3xl shadow-xl text-center space-y-4">
             <div class="w-16 h-16 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -39,7 +39,7 @@
         </div>
     </div>
 
-    <!-- カテゴリ詳細モーダル -->
+    <!-- 内訳詳細モーダル -->
     <div id="category-modal" class="modal" onclick="closeModal()">
         <div class="bg-white w-11/12 max-w-sm rounded-3xl p-6 space-y-4" onclick="event.stopPropagation()">
             <h3 id="modal-title" class="font-black text-lg text-slate-800">カテゴリ内訳</h3>
@@ -86,10 +86,10 @@
                         </div>
                         
                         <div class="grid grid-cols-2 gap-3">
-                            <input type="date" id="date" required class="bg-slate-50 p-3 rounded-xl text-sm border-none outline-none">
-                            <input type="number" id="amount" placeholder="金額" required class="bg-slate-50 p-3 rounded-xl text-sm border-none outline-none font-bold" oninput="autoSplit()">
+                            <input type="date" id="date" required class="bg-slate-50 p-3 rounded-xl text-sm outline-none">
+                            <input type="number" id="amount" placeholder="金額" required class="bg-slate-50 p-3 rounded-xl text-sm font-bold outline-none" oninput="autoSplit()">
                         </div>
-                        <input type="text" id="content" placeholder="内容" required class="w-full bg-slate-50 p-3 rounded-xl text-sm border-none outline-none">
+                        <input type="text" id="content" placeholder="内容" required class="w-full bg-slate-50 p-3 rounded-xl text-sm outline-none">
                         
                         <!-- カテゴリ：支出・収入用 -->
                         <div id="cat-fields" class="grid grid-cols-2 gap-3">
@@ -97,19 +97,19 @@
                             <select id="cat-sub" class="bg-slate-50 p-3 rounded-xl text-xs outline-none"></select>
                         </div>
 
-                        <!-- 立替セクション (支出時のみ表示) -->
+                        <!-- 立替 (支出時のみ) -->
                         <div id="reimbursement-section" class="bg-slate-50 p-4 rounded-2xl hidden">
                             <label class="flex items-center gap-3 cursor-pointer">
                                 <input type="checkbox" id="is-reimbursement" onchange="toggleReimDetails()" class="w-4 h-4 text-pink-500">
                                 <span class="text-xs font-bold text-slate-600">相手の分も含む（立替）</span>
                             </label>
                             <div id="reimbursement-details" class="hidden mt-3 grid grid-cols-2 gap-2">
-                                <div><label class="text-[9px] text-slate-400 block ml-1">A負担額</label><input type="number" id="amount-a" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('A')"></div>
-                                <div><label class="text-[9px] text-slate-400 block ml-1">B負担額</label><input type="number" id="amount-b" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('B')"></div>
+                                <div><label class="text-[9px] text-slate-400 block ml-1">A負担</label><input type="number" id="amount-a" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('A')"></div>
+                                <div><label class="text-[9px] text-slate-400 block ml-1">B負担</label><input type="number" id="amount-b" class="w-full p-2 rounded-lg text-xs border border-slate-200" oninput="manualSplit('B')"></div>
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-slate-800 text-white p-4 rounded-2xl font-black shadow-lg">記録を保存</button>
+                        <button type="submit" class="w-full bg-slate-800 text-white p-4 rounded-2xl font-black shadow-lg">保存する</button>
                     </form>
                 </div>
 
@@ -120,26 +120,26 @@
 
             <!-- 分析画面 -->
             <div id="stats-screen" class="tab-content space-y-6">
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
-                    <div class="text-center">
-                        <h3 class="font-black text-xs text-slate-400 mb-4">収支＆内訳グラフ</h3>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+                    <h3 class="font-black text-xs text-slate-400 text-center uppercase tracking-widest">収支バランス & 内訳</h3>
+                    <div class="relative h-64">
                         <canvas id="balanceChart"></canvas>
-                        <p class="text-[10px] text-slate-400 mt-2">※グラフをタップすると小分類の内訳を確認できます</p>
                     </div>
+                    <p class="text-[10px] text-slate-400 text-center">棒をタップして小分類の内訳を確認</p>
                 </div>
                 <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                    <h3 class="font-black text-xs text-slate-400 mb-4">月次支出推移（過去6ヶ月）</h3>
+                    <h3 class="font-black text-xs text-slate-400 mb-4 uppercase tracking-widest text-center">月次支出推移 (過去6ヶ月)</h3>
                     <canvas id="monthlyChart"></canvas>
                 </div>
             </div>
 
             <!-- 立替画面 -->
             <div id="settlement-screen" class="tab-content space-y-4">
-                <div class="bg-slate-800 text-white p-8 rounded-3xl text-center">
+                <div class="bg-slate-800 text-white p-8 rounded-3xl text-center shadow-xl">
                     <div id="settlement-large-display" class="text-4xl font-black">¥0</div>
-                    <div id="settlement-direction-display" class="text-xs mt-2 text-slate-400 uppercase tracking-widest">CALCULATING...</div>
+                    <div id="settlement-direction-display" class="text-[10px] mt-2 text-slate-400 uppercase tracking-widest font-bold">CALCULATING...</div>
                 </div>
-                <h3 class="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider">立替・精算の履歴</h3>
+                <h3 class="px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">立替・精算の履歴</h3>
                 <div id="reimbursement-list" class="space-y-3"></div>
             </div>
         </main>
@@ -167,13 +167,14 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // 前回の構成情報を維持
         const firebaseConfig = {
             apiKey: "AIzaSyCHXpyZApKA19bKbui4-pKNjVag7Y3A0ww",
             authDomain: "kakeibo-2944a.firebaseapp.com",
             projectId: "kakeibo-2944a",
             appId: "1:628237748010:web:23cbe6250a1a2f5ba04053"
         };
-        const APP_ID = "kakeibo-production-v4-final";
+        const APP_ID = "kakeibo-production-v3"; // 以前のIDに戻す
         const SECRET_PASS = "4632";
 
         const CATEGORIES = {
@@ -198,7 +199,7 @@
         const currentUser = window.location.pathname.includes('b-3n7v5x-sub') ? 'B' : 'A';
         const partnerUser = currentUser === 'A' ? 'B' : 'A';
 
-        // --- Auth & Security ---
+        // --- Security & Init ---
         window.checkPass = () => {
             if (document.getElementById('pass-input').value === SECRET_PASS) {
                 localStorage.setItem('kakeibo_v4_auth', 'true');
@@ -226,6 +227,8 @@
                 else {
                     document.getElementById('user-display').innerText = `ユーザー${currentUser}`;
                     document.getElementById('user-display').className = `px-3 py-1 text-[10px] font-bold text-white ${currentUser === 'A' ? 'bg-indigo-500' : 'bg-pink-500'}`;
+                    
+                    // 以前のコレクションパス artifacts/APP_ID/public/data/transactions を使用
                     const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'));
                     onSnapshot(q, (snap) => {
                         allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -240,6 +243,7 @@
                 const amount = parseInt(document.getElementById('amount').value);
                 const isReim = document.getElementById('is-reimbursement').checked;
 
+                // 以前の仕様に合わせたデータ構造
                 const data = {
                     createdBy: currentUser,
                     date: document.getElementById('date').value,
@@ -253,6 +257,7 @@
                     amountB: type === 'settle' ? (currentUser === 'B' ? amount : 0) : (isReim ? parseInt(document.getElementById('amount-b').value) : (currentUser === 'B' ? amount : 0)),
                     createdAt: Timestamp.now()
                 };
+
                 await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'transactions'), data);
                 document.getElementById('transaction-form').reset();
                 updateFormUI();
@@ -263,8 +268,6 @@
 
         window.updateFormUI = () => {
             const type = document.querySelector('input[name="type"]:checked').value;
-            const catMainSelect = document.getElementById('cat-main');
-            const catSubSelect = document.getElementById('cat-sub');
             const catFields = document.getElementById('cat-fields');
             const reimSection = document.getElementById('reimbursement-section');
 
@@ -272,19 +275,29 @@
                 catFields.classList.add('hidden');
                 reimSection.classList.add('hidden');
                 document.getElementById('is-reimbursement').checked = true;
+            } else if (type === 'income') {
+                catFields.classList.remove('hidden');
+                reimSection.classList.add('hidden');
+                document.getElementById('is-reimbursement').checked = false;
+                loadCategories('income');
             } else {
                 catFields.classList.remove('hidden');
-                reimSection.classList.toggle('hidden', type === 'income');
-                
-                catMainSelect.innerHTML = Object.keys(CATEGORIES[type]).map(c => `<option value="${c}">${c}</option>`).join('');
-                catMainSelect.onchange = () => {
-                    const main = catMainSelect.value;
-                    catSubSelect.innerHTML = CATEGORIES[type][main].map(s => `<option value="${s}">${s}</option>`).join('');
-                };
-                catMainSelect.onchange();
+                reimSection.classList.remove('hidden');
+                loadCategories('expense');
             }
             toggleReimDetails();
         };
+
+        function loadCategories(type) {
+            const catMainSelect = document.getElementById('cat-main');
+            const catSubSelect = document.getElementById('cat-sub');
+            catMainSelect.innerHTML = Object.keys(CATEGORIES[type]).map(c => `<option value="${c}">${c}</option>`).join('');
+            catMainSelect.onchange = () => {
+                const main = catMainSelect.value;
+                catSubSelect.innerHTML = CATEGORIES[type][main].map(s => `<option value="${s}">${s}</option>`).join('');
+            };
+            catMainSelect.onchange();
+        }
 
         window.toggleReimDetails = () => {
             const isChecked = document.getElementById('is-reimbursement').checked;
@@ -301,8 +314,8 @@
 
         window.manualSplit = (target) => {
             const total = parseInt(document.getElementById('amount').value) || 0;
-            if(target === 'A') document.getElementById('amount-b').value = total - (parseInt(document.getElementById('amount-a').value) || 0);
-            else document.getElementById('amount-a').value = total - (parseInt(document.getElementById('amount-a').value) || 0);
+            const val = parseInt(document.getElementById(target === 'A' ? 'amount-a' : 'amount-b').value) || 0;
+            document.getElementById(target === 'A' ? 'amount-b' : 'amount-a').value = total - val;
         };
 
         window.switchTab = (tabId) => {
@@ -323,102 +336,125 @@
 
         function render() {
             const monthRecords = allRecords.filter(r => r.date.startsWith(selectedMonth));
+            // 本人の記録または立替分を表示
             const visibleRecords = monthRecords.filter(r => r.isReimbursement || r.createdBy === currentUser);
             visibleRecords.sort((a,b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
 
-            // 履歴描画
             document.getElementById('record-list').innerHTML = visibleRecords.map(r => {
                 const isSettle = r.type === 'settle';
                 const isIncome = r.type === 'income';
+                const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
                 return `
-                    <div class="p-4 flex justify-between items-center">
+                    <div class="p-4 flex justify-between items-center bg-white">
                         <div class="flex-1">
-                            <div class="text-[9px] text-slate-400 font-bold uppercase flex gap-2">
-                                <span class="${r.createdBy === 'A' ? 'text-indigo-500' : 'text-pink-500'}">${r.createdBy}</span>
-                                <span>${r.date}</span>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[8px] px-1.5 py-0.5 rounded-md font-bold text-white ${r.createdBy === 'A' ? 'bg-indigo-400' : 'bg-pink-400'}">${r.createdBy}</span>
+                                <span class="text-[9px] text-slate-400 font-bold">${r.date}</span>
                             </div>
-                            <div class="text-sm font-bold text-slate-700">${r.content}</div>
-                            <div class="text-[10px] text-slate-400">${r.categoryMain} ❯ ${r.categorySub}</div>
+                            <div class="text-xs font-bold text-slate-700">${r.content}</div>
+                            <div class="text-[9px] text-slate-400">${r.categoryMain} ❯ ${r.categorySub}</div>
                         </div>
-                        <div class="text-right flex items-center gap-3">
-                            <div class="text-sm font-black ${isIncome ? 'text-green-500' : (isSettle ? 'text-blue-500' : 'text-pink-500')}">
-                                ${isIncome ? '+' : (isSettle ? '⇄' : '-')}¥${(currentUser === 'A' ? r.amountA : r.amountB).toLocaleString()}
+                        <div class="text-right flex items-center gap-4">
+                            <div class="text-sm font-black ${isIncome ? 'text-green-500' : (isSettle ? 'text-blue-500' : 'text-slate-800')}">
+                                ${isIncome ? '+' : (isSettle ? '⇄' : '-')}¥${myAmount.toLocaleString()}
                             </div>
-                            <button onclick="deleteRecord('${r.id}')" class="text-slate-200">×</button>
+                            <button onclick="deleteRecord('${r.id}')" class="text-slate-200 hover:text-red-400 transition-colors">×</button>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            // 精算ロジック
-            // Aが払うべきだったのにBが全額(または多く)払った分 = Aの債務
-            // AがBの分を肩代わりした分 = Aの債権
-            let netA = 0; // Aから見た収支 (プラスならAがもらう、マイナスならAが払う)
+            // 精算ロジック (累積計算)
+            let netA = 0; // Aから見た収支。プラスならAが受取、マイナスならAが支払。
             allRecords.forEach(r => {
                 if (r.type === 'settle') {
-                    // AからBへの送金は Aの貸しを減らす(またはBへの借りを返す) = Aから見てマイナス方向
+                    // Aが払った(送金) = Aの未精算債権が減る = Aから見てマイナス
                     if (r.createdBy === 'A') netA -= r.amount;
                     else netA += r.amount;
                 } else if (r.isReimbursement) {
-                    if (r.createdBy === 'A') netA += r.amountB; // Aが支払った中のB負担分
-                    else netA -= r.amountA; // Bが支払った中のA負担分
+                    // Aが作成した立替 = B負担分(amountB)だけAの債権が増える
+                    if (r.createdBy === 'A') netA += r.amountB;
+                    // Bが作成した立替 = A負担分(amountA)だけAの債務が増える
+                    else netA -= r.amountA;
                 }
             });
 
             const displayBal = currentUser === 'A' ? netA : -netA;
             document.getElementById('settlement-large-display').innerText = `¥${Math.abs(displayBal).toLocaleString()}`;
-            document.getElementById('settlement-direction-display').innerText = displayBal > 0 ? `${partnerUser} から受取予定` : (displayBal < 0 ? `${partnerUser} へ支払予定` : '清算済み');
+            document.getElementById('settlement-direction-display').innerText = displayBal > 0 ? `${partnerUser} から受取予定` : (displayBal < 0 ? `${partnerUser} へ支払予定` : '精算済み');
 
-            // 立替履歴（負担内訳表示）
+            // 立替履歴一覧 (負担額を表示)
             document.getElementById('reimbursement-list').innerHTML = allRecords
                 .filter(r => r.isReimbursement || r.type === 'settle')
-                .sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 10)
+                .sort((a,b)=>b.date.localeCompare(a.date)).slice(0, 15)
                 .map(r => `
-                    <div class="p-4 bg-white rounded-2xl border border-slate-100 flex justify-between items-center">
-                        <div>
-                            <div class="text-[9px] font-black ${r.type==='settle'?'text-blue-500':'text-slate-400'}">${r.date} ${r.type==='settle'?'[精算済]':`by ${r.createdBy}`}</div>
-                            <div class="text-xs font-bold">${r.content}</div>
-                            <div class="text-[9px] text-slate-400 mt-1">
-                                A負担: ¥${r.amountA.toLocaleString()} / B負担: ¥${r.amountB.toLocaleString()}
+                    <div class="p-4 bg-white rounded-2xl border border-slate-100 flex justify-between items-center shadow-sm">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-[8px] font-black ${r.type==='settle'?'text-blue-500':'text-slate-400'} uppercase tracking-tighter">${r.date} ${r.type==='settle'?'[精算完了]':`立替 by ${r.createdBy}`}</span>
+                            </div>
+                            <div class="text-[11px] font-bold text-slate-800">${r.content}</div>
+                            <div class="text-[9px] text-slate-400 mt-1 flex gap-2">
+                                <span class="bg-indigo-50 text-indigo-500 px-1 rounded">A: ¥${r.amountA.toLocaleString()}</span>
+                                <span class="bg-pink-50 text-pink-500 px-1 rounded">B: ¥${r.amountB.toLocaleString()}</span>
                             </div>
                         </div>
-                        <div class="text-sm font-black">¥${r.amount.toLocaleString()}</div>
+                        <div class="text-right ml-4">
+                            <div class="text-xs font-black text-slate-700">¥${r.amount.toLocaleString()}</div>
+                        </div>
                     </div>
                 `).join('');
 
             updateStats(visibleRecords);
         }
 
-        function updateStats(data) {
-            const expenseData = data.filter(r => r.type === 'expense');
-            const incomeData = data.filter(r => r.type === 'income');
-
-            // 1. 収支＆内訳グラフ (Chart.js Bar)
+        function updateStats(monthData) {
             const expenseByMain = {};
             const incomeByMain = {};
-            expenseData.forEach(r => expenseByMain[r.categoryMain] = (expenseByMain[r.categoryMain] || 0) + (currentUser === 'A' ? r.amountA : r.amountB));
-            incomeData.forEach(r => incomeByMain[r.categoryMain] = (incomeByMain[r.categoryMain] || 0) + (currentUser === 'A' ? r.amountA : r.amountB));
+            
+            monthData.forEach(r => {
+                const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
+                if (r.type === 'expense') expenseByMain[r.categoryMain] = (expenseByMain[r.categoryMain] || 0) + myAmount;
+                if (r.type === 'income') incomeByMain[r.categoryMain] = (incomeByMain[r.categoryMain] || 0) + myAmount;
+            });
 
+            // 1. 収支＆内訳グラフ (Chart.js Bar)
             if(chartInstances.balance) chartInstances.balance.destroy();
-            chartInstances.balance = new Chart(document.getElementById('balanceChart'), {
+            const ctx = document.getElementById('balanceChart').getContext('2d');
+            chartInstances.balance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: ['収入', '支出'],
                     datasets: [
-                        ...Object.keys(incomeByMain).map(cat => ({ label: cat, data: [incomeByMain[cat], 0], backgroundColor: '#10b981', stack: 'in' })),
-                        ...Object.keys(expenseByMain).map(cat => ({ label: cat, data: [0, expenseByMain[cat]], backgroundColor: '#f43f5e', stack: 'out' }))
+                        ...Object.keys(incomeByMain).map(cat => ({
+                            label: cat,
+                            data: [incomeByMain[cat], 0],
+                            backgroundColor: '#10b981',
+                            stack: 'in'
+                        })),
+                        ...Object.keys(expenseByMain).map(cat => ({
+                            label: cat,
+                            data: [0, expenseByMain[cat]],
+                            backgroundColor: '#f43f5e',
+                            stack: 'out'
+                        }))
                     ]
                 },
                 options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
+                    },
                     onClick: (e, elements) => {
                         if (elements.length > 0) {
                             const datasetIndex = elements[0].datasetIndex;
                             const catName = chartInstances.balance.data.datasets[datasetIndex].label;
-                            showCategoryDetail(catName, data);
+                            showCategoryDetail(catName, monthData);
                         }
-                    },
-                    scales: { y: { beginAtZero: true } }
+                    }
                 }
             });
 
@@ -429,7 +465,7 @@
                 const d = new Date();
                 d.setMonth(d.getMonth() - i);
                 const m = d.toISOString().slice(0, 7);
-                monthLabels.push(m);
+                monthLabels.push(m.split('-')[1] + '月');
                 const sum = allRecords.filter(r => r.date.startsWith(m) && r.type === 'expense')
                                       .reduce((s, r) => s + (currentUser === 'A' ? r.amountA : r.amountB), 0);
                 monthExpenses.push(sum);
@@ -439,20 +475,33 @@
             chartInstances.monthly = new Chart(document.getElementById('monthlyChart'), {
                 type: 'line',
                 data: {
-                    labels: monthLabels.map(m => m.split('-')[1] + '月'),
-                    datasets: [{ label: '月別支出', data: monthExpenses, borderColor: '#6366f1', tension: 0.3, fill: true, backgroundColor: 'rgba(99, 102, 241, 0.1)' }]
+                    labels: monthLabels,
+                    datasets: [{
+                        label: '支出推移',
+                        data: monthExpenses,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
                 },
-                options: { plugins: { legend: { display: false } } }
+                options: {
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: '#f8fafc' } } }
+                }
             });
         }
 
         window.showCategoryDetail = (mainCat, data) => {
             const subMap = {};
             data.filter(r => r.categoryMain === mainCat).forEach(r => {
-                subMap[r.categorySub] = (subMap[r.categorySub] || 0) + (currentUser === 'A' ? r.amountA : r.amountB);
+                const myAmount = currentUser === 'A' ? r.amountA : r.amountB;
+                subMap[r.categorySub] = (subMap[r.categorySub] || 0) + myAmount;
             });
 
-            document.getElementById('modal-title').innerText = `${mainCat} の内訳`;
+            document.getElementById('modal-title').innerText = `${mainCat} の小分類`;
             document.getElementById('modal-content').innerHTML = Object.entries(subMap).map(([sub, val]) => `
                 <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
                     <span class="text-xs font-bold text-slate-600">${sub}</span>
