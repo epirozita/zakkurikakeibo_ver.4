@@ -503,7 +503,9 @@
             });
 
             // 1. ウォーターフォールチャート（フローティングバーチャートで疑似実装）
-            const labels = ['歳入', ...CATEGORIES_NEW.expense, '残額'];
+            // 並び順をカスタム: 歳入 -> その他支出 -> 控除 -> 投資 -> 残額
+            const otherExpenses = CATEGORIES_NEW.expense.filter(c => c !== '控除' && c !== '投資');
+            const labels = ['歳入', ...otherExpenses, '控除', '投資', '残額'];
             const dataPairs = [];
             const bgColors = [];
             let currentBalance = 0;
@@ -513,11 +515,20 @@
             bgColors.push('#10b981'); // Emerald
             currentBalance = totalIn;
 
-            // 各支出バー
-            CATEGORIES_NEW.expense.forEach(cat => {
+            // 支出各バーの描画ループ
+            labels.slice(1, -1).forEach(cat => {
                 const exp = mainTotals[cat] || 0;
                 dataPairs.push([currentBalance - exp, currentBalance]);
-                bgColors.push('#f43f5e'); // Rose (赤系)
+                
+                // 色の条件分岐
+                if (cat === '控除') {
+                    bgColors.push('#f59e0b'); // Amber (控除用のオレンジ系)
+                } else if (cat === '投資') {
+                    bgColors.push('#6366f1'); // Indigo (投資用の青紫系)
+                } else {
+                    bgColors.push('#f43f5e'); // Rose (通常の支出用赤系)
+                }
+                
                 currentBalance -= exp;
             });
 
